@@ -1,0 +1,90 @@
+---
+title: "HW6"
+author: "Xin Qu"
+date: ''
+output:
+  html_document: 
+    toc: yes
+  pdf_document: default
+urlcolor: cyan
+---
+
+```{r}
+library(MASS)
+```
+
+##Part 1: load data and find outliers
+
+load data
+
+```{r}
+data = read.csv('/Users/xinqu/Sandbox/CS498 Applied Machine Learning/HW/HW6/housing.data.txt', header = FALSE, sep = '')
+```
+
+```{r}
+data_model = lm(V14 ~ ., data = data)
+summary(data_model)
+```
+
+```{r}
+model_stdres = rstandard(data_model)
+plot(fitted(data_model), model_stdres, col = "dodgerblue", pch = 20, cex = 1.5,
+       xlab = "Fitted", ylab = "Residuals")
+abline(h = 0, col = "darkorange", lwd = 2)
+title("Standardrized residuals VS fitted values")
+```
+
+Produce a diagnostic plot
+
+```{r fig.height=5, fig.width=5}
+par(mfrow = c(2, 2))
+plot(data_model, id.n = 10)
+```
+
+From Residuals vs Fitted plot, it tells that points [413, 366, 369, 372, 373, 370, 371, 187, 162, 365] have great influence on Residuals, since other points spread out equally around the horizontal line which means there is a linear relation between features and the outcome variable if remove these points. Normal Q-Q plot shows if the residuals are normally distributed. From the Normal Q-Q plot, it shows that points [369, 372, 373, 370, 413, 371, 187, 365, 366] are not lined well on the straight dashed line. Scale-Location plot checks the equal variance assumption, it shows that points [413, 372, 371, 366, 373, 365, 369, 370, 187, 162] spread out the line. From Residuals vs Leverage plot, it shows points [372, 373, 369, 370, 413, 371, 366, 215, 158, 365] have the most extreme influence to determine a regression line (with hight value of standardized residuals). The intersection of the listing four point list are [413, 366, 369, 372, 373, 370, 371, 365] and they are the outliers. 
+
+##Part 2 remove outliers and compute new regression
+
+```{r}
+data_new = data[-c(413, 366, 369, 372, 373, 370, 371, 365), ]
+model_new = lm(V14 ~ ., data = data_new)
+summary(model_new)
+```
+
+```{r fig.height=5, fig.width=5}
+par(mfrow = c(2, 2))
+plot(model_new, id.n = 3)
+```
+
+##Part 3 Box-Cox transform
+
+```{r}
+lambdas = boxcox(model_new)
+```
+
+```{r}
+best = lambdas$x[which.max(lambdas$y)]
+best
+```
+
+##Part 4 Transform variable
+
+```{r}
+trans_price = (data_new$V14 ^ best - 1) / best
+model_box = lm(trans_price ~ data_new$V1 + data_new$V2 + data_new$V3 + data_new$V4 + data_new$V5 + data_new$V6 + data_new$V7 + data_new$V8 + data_new$V9 + data_new$V10 + data_new$V11 + data_new$V12 + data_new$V13)
+summary(model_box)
+```
+
+```{r}
+stdres_box = rstandard(model_box)
+plot(fitted(model_box), stdres_box, col = "dodgerblue", pch = 20, cex = 1.5,
+       xlab = "Fitted", ylab = "Residuals")
+abline(h = 0, col = "darkorange", lwd = 2)
+title("Standardized residuals VS fitted values after transform")
+```
+
+```{r}
+fit_val_trans = (model_box$fitted.values * best + 1) ^ (1 / best)
+plot(fit_val_trans, data_new$V14, xlab = 'Fitted house price', ylab = 'True house price', col = "dodgerblue", xlim = c(0, 50), ylim = c(0, 50))
+title("Fitted house price vs True house price")
+```
